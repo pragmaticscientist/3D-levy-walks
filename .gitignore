@@ -1,0 +1,18 @@
+/old
+/plots
+/scripts
+
+/results/detection_time_cauchy/*
+/results/detection_time_mu/*
+/results/detection_time_fixed_volume/*
+/results/detection_time_small_delta/*
+/results/unpolished/*
+
+data-analysis.py
+OAR*
+sim_by_volume.c
+sim.c
+
+# Temporary files
+*executable*
+
