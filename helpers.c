@@ -96,6 +96,8 @@ void load_config(const char *path, Config *cfg) {
             cfg->max_touches = atoi(value);
         else if (!strcmp(key, "num_runs"))         /* NEW */
             cfg->num_runs = atoi(value);
+        else if (!strcmp(key, "num_threads"))
+            cfg->num_threads = atoi(value);
         else if (!strcmp(key, "l_max"))         /* NEW */
             cfg->l_max = strtod(value, NULL);
 
