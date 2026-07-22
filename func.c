@@ -212,11 +212,12 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
     if (target_distance_from_origin >= 0) { // Fixed distance
         for (int i = 0; i < num_targets_to_generate; ++i) {
             double theta = rng_uniform(&rng_state) * 2 * M_PI;
-            double phi = rng_uniform(&rng_state) * M_PI;
+            double cos_phi = 1.0 - 2.0 * rng_uniform(&rng_state);
+            double sin_phi = sqrt(1.0 - cos_phi * cos_phi);
 
-            double x = target_distance_from_origin * sin(phi) * cos(theta);
-            double y = target_distance_from_origin * sin(phi) * sin(theta);
-            double z = target_distance_from_origin * cos(phi);
+            double x = target_distance_from_origin * sin_phi * cos(theta);
+            double y = target_distance_from_origin * sin_phi * sin(theta);
+            double z = target_distance_from_origin * cos_phi;
 
             target_positions[i][0] = fmod(x + cube_side / 2.0, cube_side);
             target_positions[i][1] = fmod(y + cube_side / 2.0, cube_side);
@@ -295,11 +296,12 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
             walker_times[i] += l;
 
             double theta = rng_uniform(&rng_state) * 2 * M_PI;
-            double phi = rng_uniform(&rng_state) * M_PI;
+            double cos_phi = 1.0 - 2.0 * rng_uniform(&rng_state);
+            double sin_phi = sqrt(1.0 - cos_phi * cos_phi);
             double direction[3];
-            direction[0] = sin(phi) * cos(theta);
-            direction[1] = sin(phi) * sin(theta);
-            direction[2] = cos(phi);
+            direction[0] = sin_phi * cos(theta);
+            direction[1] = sin_phi * sin(theta);
+            direction[2] = cos_phi;
 
             walkers[i][0] += direction[0] * l;
             walkers[i][1] += direction[1] * l;
