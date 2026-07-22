@@ -1,0 +1,87 @@
+schema_version: 1
+run_id: equal_run_weight_all_conditions
+
+input:
+  tracks_directory: ../datasets/GT_TRACKS
+  glob: "*GT*.csv"
+  metadata_file: ltdb_metadata.csv
+  coordinates_are_physical: true
+
+selection:
+  include_files: []
+  exclude_files:
+    - SQUARE_GT..csv
+  minimum_observations_per_track: 6
+
+preprocessing:
+  split_at_missing_frames: true
+  duplicate_policy: error
+  interpolation: false
+
+segmentation:
+  method: angle_speed
+  turning_angle_degrees: 90.0
+  speed_threshold: null
+  speed_threshold_units: um_per_second
+  alternative_turning_angles: [45.0, 60.0, 90.0]
+  alternative_speed_thresholds: [null, 0.0166666667, 0.0333333333, 0.0666666667]
+  exclude_first_and_last_run: true
+  minimum_run_frames: 1
+  minimum_run_length: 0.0
+
+conditions:
+  grouping_fields: [cell_type, organ, stimulus, dt_seconds]
+  fallback_to_file: true
+  require_verified_metadata: true
+
+empirical_pool:
+  # Every complete directed run has the same likelihood weight. Tracks remain
+  # resampling clusters for uncertainty estimates, but do not determine the
+  # point-estimate weights.
+  primary_weighting: step_weighted
+  alternative_weightings: [cell_balanced]
+  use_complete_runs_only: true
+  minimum_tracks_per_pool: 15
+  minimum_runs_per_pool: 100
+  optional_block_lengths: [3, 5]
+  sample_length_duration_jointly: false
+
+fitting:
+  lmax_method: empirical_max
+  user_lmax: null
+  lmax_quantile: 0.99
+  crossover: 3.75
+  estimate_crossover: true
+  crossover_bounds: null
+  crossover_sensitivity: [0.9375, 1.875, 3.75, 7.5, 15.0]
+  mu_bounds: [1.001, 10.0]
+  goodness_of_fit_bootstraps: 500
+  segmentation_goodness_of_fit_bootstraps: 100
+  clustered_bootstraps: 1000
+  cv_folds: 10
+  random_seed: 12345
+
+replay:
+  # Focused all-condition replay overrides the torus width with 2*Lmax after
+  # normalizing each condition by its own fitted crossover.
+  domain_side_length: 512.0
+  detection_radius: 1.0
+  shapes: [Ball, Disk, Line]
+  # Area 24 is used instead of 32 so the complete Line detection neighbourhood
+  # fits the smallest normalized condition torus.
+  projected_areas: [4.0, 8.0, 16.0, 24.0]
+  replays_per_track_target: 10000
+  budget_type: path_length
+  fixed_budget_quantile: 0.5
+  overshoot_policy: discard
+  check_initial_position: false
+  block_lengths: [3, 5]
+  pilot_tracks_per_condition: 2
+  pilot_replays_per_track: 10
+  pilot_min_detected: 20
+  pilot_min_undetected: 20
+  random_seed: 24680
+
+output:
+  root: ../outputs/equal_run_weight_all_conditions
+  figures: true

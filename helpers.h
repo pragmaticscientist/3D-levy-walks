@@ -7,6 +7,7 @@ typedef struct {
     int steps_between;
     int max_touches;
     int num_runs;         
+    int num_threads;
     double l_max;
     /* Ranges */
     double *rangemu_LevyDistrib;

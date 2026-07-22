@@ -2,8 +2,17 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <stdint.h>
 #include <string.h> // Per strcmp e per gestire le stringhe
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include "func.h"
+
+typedef struct {
+    uint64_t state;
+    uint64_t inc;
+} RngState;
 
 int get_mu_index(double mu_val) {
     return (int)round((mu_val - 1.0) / 0.2);
@@ -63,11 +72,53 @@ double toroidal_distance(double p1[3], double p2[3], double side_length) {
     return sqrt(toroidal_distance_squared(p1, p2, side_length));
 }
 
-// --- Funzione Levy originale ---
-double Levy(double mu, int lmax, double normalization_constant) {
-    // flip a coin with probability "normalization constant"
-    double toss = (double)rand() / RAND_MAX;
-    double unif = (double)rand() / RAND_MAX;
+static uint64_t splitmix64(uint64_t *x) {
+    uint64_t z = (*x += 0x9e3779b97f4a7c15ULL);
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    return z ^ (z >> 31);
+}
+
+static uint32_t pcg32_random(RngState *rng) {
+    uint64_t oldstate = rng->state;
+    rng->state = oldstate * 6364136223846793005ULL + (rng->inc | 1ULL);
+    uint32_t xorshifted = (uint32_t)(((oldstate >> 18u) ^ oldstate) >> 27u);
+    uint32_t rot = (uint32_t)(oldstate >> 59u);
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+}
+
+static RngState make_rng_state(void) {
+    static uint64_t counter = 0;
+    uint64_t id;
+#ifdef _OPENMP
+#pragma omp atomic capture
+    id = ++counter;
+#else
+    id = ++counter;
+#endif
+
+    uint64_t entropy = (uint64_t)time(NULL);
+    entropy ^= (uint64_t)clock() << 32;
+    entropy ^= id * 0x9e3779b97f4a7c15ULL;
+#ifdef _OPENMP
+    entropy ^= (uint64_t)(omp_get_thread_num() + 1) * 0xbf58476d1ce4e5b9ULL;
+#endif
+
+    RngState rng = {0, 0};
+    rng.inc = (splitmix64(&entropy) << 1u) | 1u;
+    pcg32_random(&rng);
+    rng.state += splitmix64(&entropy);
+    pcg32_random(&rng);
+    return rng;
+}
+
+static double rng_uniform(RngState *rng) {
+    return ((double)pcg32_random(rng) + 0.5) * (1.0 / 4294967296.0);
+}
+
+static double Levy_with_rng(double mu, int lmax, double normalization_constant, RngState *rng_state) {
+    double toss = rng_uniform(rng_state);
+    double unif = rng_uniform(rng_state);
     if (toss <= normalization_constant){
         return unif;
     } else {
@@ -77,6 +128,12 @@ double Levy(double mu, int lmax, double normalization_constant) {
             return pow((1 - normalization_constant)/normalization_constant*(1-mu)*unif + 1,1/(1-mu));
         }
     }
+}
+
+// --- Funzione Levy originale ---
+double Levy(double mu, int lmax, double normalization_constant) {
+    RngState rng_state = make_rng_state();
+    return Levy_with_rng(mu, lmax, normalization_constant, &rng_state);
 }
 
 // --- Rotazione per disco ---
@@ -116,6 +173,7 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
                                 double D, const char* TargetShape, int num_targets_to_generate,
                                 double target_distance_from_origin, double p, double normalization_constant, int steps_between, int max_touches, int delta_selector, double delta) {
     double cube_side = cbrt(n_volume);
+    RngState rng_state = make_rng_state();
 
     // Allocate memory for walkers
     double (*walkers)[3] = (double (*)[3])malloc(n_walkers * sizeof(double[3]));
@@ -127,15 +185,15 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
     // Initialize walkers
     if (strcmp(initialization, "independent") == 0) {
         for (int i = 0; i < n_walkers; ++i) {
-            walkers[i][0] = (double)rand() / RAND_MAX * cube_side;
-            walkers[i][1] = (double)rand() / RAND_MAX * cube_side;
-            walkers[i][2] = (double)rand() / RAND_MAX * cube_side;
+            walkers[i][0] = rng_uniform(&rng_state) * cube_side;
+            walkers[i][1] = rng_uniform(&rng_state) * cube_side;
+            walkers[i][2] = rng_uniform(&rng_state) * cube_side;
         }
     } else if (strcmp(initialization, "nest") == 0) {
         double random_point[3];
-        random_point[0] = (double)rand() / RAND_MAX * cube_side;
-        random_point[1] = (double)rand() / RAND_MAX * cube_side;
-        random_point[2] = (double)rand() / RAND_MAX * cube_side;
+        random_point[0] = rng_uniform(&rng_state) * cube_side;
+        random_point[1] = rng_uniform(&rng_state) * cube_side;
+        random_point[2] = rng_uniform(&rng_state) * cube_side;
         for (int i = 0; i < n_walkers; ++i) {
             walkers[i][0] = random_point[0];
             walkers[i][1] = random_point[1];
@@ -153,12 +211,13 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
     // Initialize target positions
     if (target_distance_from_origin >= 0) { // Fixed distance
         for (int i = 0; i < num_targets_to_generate; ++i) {
-            double theta = (double)rand() / RAND_MAX * 2 * M_PI;
-            double phi = (double)rand() / RAND_MAX * M_PI;
+            double theta = rng_uniform(&rng_state) * 2 * M_PI;
+            double cos_phi = 1.0 - 2.0 * rng_uniform(&rng_state);
+            double sin_phi = sqrt(1.0 - cos_phi * cos_phi);
 
-            double x = target_distance_from_origin * sin(phi) * cos(theta);
-            double y = target_distance_from_origin * sin(phi) * sin(theta);
-            double z = target_distance_from_origin * cos(phi);
+            double x = target_distance_from_origin * sin_phi * cos(theta);
+            double y = target_distance_from_origin * sin_phi * sin(theta);
+            double z = target_distance_from_origin * cos_phi;
 
             target_positions[i][0] = fmod(x + cube_side / 2.0, cube_side);
             target_positions[i][1] = fmod(y + cube_side / 2.0, cube_side);
@@ -169,9 +228,9 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
         }
     } else { // Random placement
         for (int i = 0; i < num_targets_to_generate; ++i) {
-            target_positions[i][0] = (double)rand() / RAND_MAX * cube_side;
-            target_positions[i][1] = (double)rand() / RAND_MAX * cube_side;
-            target_positions[i][2] = (double)rand() / RAND_MAX * cube_side;
+            target_positions[i][0] = rng_uniform(&rng_state) * cube_side;
+            target_positions[i][1] = rng_uniform(&rng_state) * cube_side;
+            target_positions[i][2] = rng_uniform(&rng_state) * cube_side;
         }
     }
 
@@ -233,15 +292,16 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
                 continue;
             }
 
-            double l = Levy(mu, lmax, normalization_constant);
+            double l = Levy_with_rng(mu, lmax, normalization_constant, &rng_state);
             walker_times[i] += l;
 
-            double theta = (double)rand() / RAND_MAX * 2 * M_PI;
-            double phi = (double)rand() / RAND_MAX * M_PI;
+            double theta = rng_uniform(&rng_state) * 2 * M_PI;
+            double cos_phi = 1.0 - 2.0 * rng_uniform(&rng_state);
+            double sin_phi = sqrt(1.0 - cos_phi * cos_phi);
             double direction[3];
-            direction[0] = sin(phi) * cos(theta);
-            direction[1] = sin(phi) * sin(theta);
-            direction[2] = cos(phi);
+            direction[0] = sin_phi * cos(theta);
+            direction[1] = sin_phi * sin(theta);
+            direction[2] = cos_phi;
 
             walkers[i][0] += direction[0] * l;
             walkers[i][1] += direction[1] * l;
@@ -387,7 +447,7 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
                         winning_index = i;
                         break;
                     }
-                    double r = (double)rand() / RAND_MAX;
+                    double r = rng_uniform(&rng_state);
                     if (r <= p) {
                         found_this_walker_in_this_step = 1;
                         break;

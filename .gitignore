@@ -33,3 +33,19 @@ sim.c
 validation/*.csv
 validation/*.png
 validation/__pycache__/*
+
+# LTDB Python pipeline products and caches
+/outputs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Simulation outputs: per-thread shards and archived runs
+/results/*/*_thread*.csv
+/results/*/old/
+/results/*/review/
+
+# Merged result files, too large for git
+/results/detection_time_fixed_surface/detection_time_fixed_surface.csv
+/results/fixed_volume/detection_time_fixed_volume.csv
