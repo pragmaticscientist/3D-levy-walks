@@ -49,3 +49,6 @@ __pycache__/
 # Merged result files, too large for git
 /results/detection_time_fixed_surface/detection_time_fixed_surface.csv
 /results/fixed_volume/detection_time_fixed_volume.csv
+
+# Generated analysis reports and figures
+/docs/
