@@ -25,6 +25,7 @@ from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from .bootstrap import clustered_mu_bootstrap
 from .config import Config, load_config
@@ -160,6 +161,113 @@ class ArrestScaleExperimentSettings:
             raise ValueError("clustered_bootstraps must be positive")
         if self.goodness_of_fit_bootstraps < 1:
             raise ValueError("goodness_of_fit_bootstraps must be positive")
+
+
+def load_arrest_scale_settings(path: Path) -> ArrestScaleExperimentSettings:
+    """Load reproducible experiment settings from a YAML file.
+
+    Relative input and output paths are resolved against the settings file,
+    allowing the command to be launched from any working directory.
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise ValueError(
+            "Arrest-scale configuration file not found: {}".format(path)
+        )
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            raw = yaml.safe_load(handle)
+    except yaml.YAMLError as exc:
+        raise ValueError(
+            "Could not parse arrest-scale configuration {}: {}".format(
+                path, exc
+            )
+        ) from exc
+    if not isinstance(raw, dict):
+        raise ValueError(
+            "Arrest-scale configuration root must be a mapping: {}".format(
+                path
+            )
+        )
+
+    allowed = {
+        "schema_version",
+        "source_config",
+        "output_root",
+        "area_values",
+        "volume_values",
+        "finite_replays_per_track",
+        "finite_batch_size",
+        "workers",
+        "clustered_bootstraps",
+        "goodness_of_fit_bootstraps",
+        "random_seed",
+        "resume",
+    }
+    unknown = sorted(set(raw) - allowed)
+    if unknown:
+        raise ValueError(
+            "Unknown arrest-scale configuration keys: {}".format(
+                ", ".join(unknown)
+            )
+        )
+    if int(raw.get("schema_version", 1)) != 1:
+        raise ValueError(
+            "Unsupported arrest-scale schema_version: {}".format(
+                raw.get("schema_version")
+            )
+        )
+
+    defaults = ArrestScaleExperimentSettings()
+    base = path.parent.resolve()
+
+    def resolve(value: object) -> Path:
+        candidate = Path(value)
+        return (
+            candidate.resolve()
+            if candidate.is_absolute()
+            else (base / candidate).resolve()
+        )
+
+    settings = ArrestScaleExperimentSettings(
+        source_config=resolve(
+            raw.get("source_config", defaults.source_config)
+        ),
+        output_root=resolve(raw.get("output_root", defaults.output_root)),
+        area_values=tuple(
+            float(value)
+            for value in raw.get("area_values", defaults.area_values)
+        ),
+        volume_values=tuple(
+            float(value)
+            for value in raw.get("volume_values", defaults.volume_values)
+        ),
+        finite_replays_per_track=int(
+            raw.get(
+                "finite_replays_per_track",
+                defaults.finite_replays_per_track,
+            )
+        ),
+        finite_batch_size=int(
+            raw.get("finite_batch_size", defaults.finite_batch_size)
+        ),
+        workers=int(raw.get("workers", defaults.workers)),
+        clustered_bootstraps=int(
+            raw.get("clustered_bootstraps", defaults.clustered_bootstraps)
+        ),
+        goodness_of_fit_bootstraps=int(
+            raw.get(
+                "goodness_of_fit_bootstraps",
+                defaults.goodness_of_fit_bootstraps,
+            )
+        ),
+        random_seed=int(raw.get("random_seed", defaults.random_seed)),
+        resume=raw.get("resume", defaults.resume),
+    )
+    if not isinstance(settings.resume, bool):
+        raise ValueError("resume must be a boolean")
+    settings.validate()
+    return settings
 
 
 def line_projected_area_limit(side_length: float, d: float = 1.0) -> float:
@@ -1384,6 +1492,7 @@ __all__ = [
     "VOLUME_VALUES",
     "line_neighbourhood_volume_limit",
     "line_projected_area_limit",
+    "load_arrest_scale_settings",
     "make_arrest_scale_figures",
     "run_arrest_scale_experiment",
 ]

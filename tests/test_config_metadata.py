@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from pathlib import Path
 
-from ltdb_levy.conditions import load_metadata
 from ltdb_levy.config import load_config
 
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+from conftest import REPOSITORY_ROOT
 
 
 def test_analysis_hash_changes_with_metadata_and_track_content(tmp_path):
@@ -39,19 +36,3 @@ def test_analysis_hash_changes_with_metadata_and_track_content(tmp_path):
 
     assert first != second
     assert second != third
-
-
-def test_curated_ltdb_metadata_is_complete_and_source_verified():
-    metadata = load_metadata(
-        REPOSITORY_ROOT / "configs" / "ltdb_metadata.csv"
-    )
-
-    assert metadata is not None
-    assert len(metadata) == 44
-    assert metadata["verified"].all()
-    assert not metadata[["cell_type", "organ", "stimulus"]].isna().any().any()
-    by_id = metadata.set_index("video_id")
-    assert by_id.loc["LTDB010_a", "cell_type"] == "B Cells"
-    assert by_id.loc["LTDB012_b", "cell_type"] == "T Cells"
-    assert by_id.loc["LTDB017_b", "cell_type"] == "Neutrophils"
-    assert by_id.loc["CS005_a", "stimulus"] == "Vaccinia Virus"

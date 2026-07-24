@@ -1,0 +1,16 @@
+schema_version: 1
+
+# Paths are resolved relative to this file.
+source_config: equal_run_weight_run_eligible_conditions.yaml
+output_root: ../outputs/arrest_scale_selected_area_volume
+
+area_values: [4.0, 8.0, 16.0, 32.0, 64.0, 125.0, 250.0, 375.0, 500.0]
+volume_values: [7.0, 10.0, 20.0, 40.0, 80.0, 160.0, 320.0, 500.0, 750.0, 925.0]
+
+finite_replays_per_track: 10000
+finite_batch_size: 1000
+workers: 64
+clustered_bootstraps: 1000
+goodness_of_fit_bootstraps: 500
+random_seed: 731905
+resume: true

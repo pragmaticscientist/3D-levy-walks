@@ -1,25 +1,12 @@
 /old
 /plots
-/scripts
-data-analysis_temp.ipynb
 
-# Ignore all contents
-/results/detection_time_cauchy/*
-/results/detection_time_mu/*
-/results/detection_time_fixed_volume/*
-/results/detection_time_small_delta/*
-/results/fixed_volume/*
-/results/unpolished/*
+# Local helper scripts are ignored except for reproducible experiment runners.
+/scripts/*
+!/scripts/run_arrest_scale_experiment.py
 
-# But keep the directories themselves
-!/results/detection_time_cauchy/.gitkeep
-!/results/detection_time_cauchy/.gitkeep
-!/results/detection_time_mu/.gitkeep
-!/results/detection_time_mu/.gitkeep
-!/results/fixed_volume/.gitkeep
-!/results/detection_time_fixed_volume/.gitkeep
-!/results/detection_time_small_delta/.gitkeep
-!/results/detection_time_small_delta/.gitkeep
+# Notebooks contain generated outputs and are kept local.
+*.ipynb
 
 data-analysis.py
 OAR*
@@ -41,14 +28,14 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 
-# Simulation outputs: per-thread shards and archived runs
-/results/*/*_thread*.csv
-/results/*/old/
-/results/*/review/
+# Source trajectories and biological annotations are local inputs.
+/datasets/GT_TRACKS/*
+!/datasets/GT_TRACKS/.gitkeep
+/configs/ltdb_metadata.csv
 
-# Merged result files, too large for git
-/results/detection_time_fixed_surface/detection_time_fixed_surface.csv
-/results/fixed_volume/detection_time_fixed_volume.csv
+# All simulation outputs and generated experiment indexes are local artifacts.
+/results/
+/experiments/configs/ltdb_fitted_mu/index.csv
 
 # Generated analysis reports and figures
 /docs/
