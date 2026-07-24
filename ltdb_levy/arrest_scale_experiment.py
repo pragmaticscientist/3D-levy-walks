@@ -659,7 +659,7 @@ def _make_figures(
     # encoded only by line style.  The observed and whole-track-rotation
     # controls remain in the saved tables but are deliberately omitted here.
     class_style = {
-        "ordered_length_rotated": ("Independent rotations", "-", True),
+        "ordered_length_rotated": ("Empirical", "-", True),
         "fitted_mu": ("Fitted $\\mu$", "--", False),
     }
     shape_style = {
@@ -773,7 +773,12 @@ def _make_figures(
             1.08
             * selected["detection_probability_ci_high"].to_numpy(dtype=float).max()
         )
-        for column_index, spec in enumerate(SELECTED_CONDITIONS):
+        plot_specs = (
+            tuple(reversed(SELECTED_CONDITIONS))
+            if compact_row
+            else SELECTED_CONDITIONS
+        )
+        for column_index, spec in enumerate(plot_specs):
             axis = axes[column_index]
             condition = selected[selected["condition_id"] == spec.condition_id]
             for shape, (color, marker) in shape_style.items():
@@ -827,7 +832,7 @@ def _make_figures(
                         )
                     )
                 )
-                axis.set_xlabel(r"$\Delta$", fontsize=6.7, labelpad=1.0)
+                axis.set_xlabel(r"$\Delta_P$", fontsize=6.7, labelpad=1.0)
                 axis.set_ylabel("")
                 axis.grid(
                     axis="y",
@@ -871,7 +876,7 @@ def _make_figures(
                     0.0, common_y_high if shared_y else condition_y_high
                 )
                 axis.set_xlabel(
-                    r"$\Delta$",
+                    r"$\Delta_P$",
                     fontsize=8.0,
                     labelpad=2.0 if one_column else None,
                 )
@@ -903,7 +908,7 @@ def _make_figures(
 
         if compact_row:
             fig.text(
-                0.012,
+                0.050,
                 0.565,
                 r"$\Pr(\mathrm{Detection})$",
                 ha="center",
@@ -912,38 +917,28 @@ def _make_figures(
                 fontsize=6.7,
             )
             fig.legend(
-                shape_handles,
-                [handle.get_label() for handle in shape_handles],
+                shape_handles + class_handles,
+                [
+                    handle.get_label()
+                    for handle in shape_handles + class_handles
+                ],
                 loc="lower center",
-                bbox_to_anchor=(0.5, 0.105),
-                ncol=3,
-                columnspacing=0.9,
-                handletextpad=0.28,
-                markerscale=0.85,
-                borderaxespad=0.0,
-                frameon=False,
-                fontsize=6.0,
-            )
-            fig.legend(
-                class_handles,
-                [handle.get_label() for handle in class_handles],
-                loc="lower center",
-                bbox_to_anchor=(0.5, 0.015),
-                ncol=2,
-                columnspacing=1.0,
-                handlelength=1.7,
-                handletextpad=0.35,
-                markerscale=0.85,
+                bbox_to_anchor=(0.5, 0.035),
+                ncol=5,
+                columnspacing=0.45,
+                handlelength=1.25,
+                handletextpad=0.22,
+                markerscale=0.82,
                 borderaxespad=0.0,
                 frameon=False,
                 fontsize=6.0,
             )
             fig.subplots_adjust(
-                left=0.14,
-                right=0.982,
-                top=0.80,
-                bottom=0.33,
-                wspace=0.18,
+                left=0.12,
+                right=0.88,
+                top=0.86,
+                bottom=0.23,
+                wspace=0.33,
             )
         elif one_column:
             fig.legend(
