@@ -1,7 +1,9 @@
 # LTDB Lévy-walk simulations
 
 This repository contains code and reproducible configuration, but no source
-trajectories, generated tables, figures, notebooks, or simulation results.
+trajectories, generated tables, figures, or simulation results. The tracked
+`simulation-plots.ipynb` notebook contains plotting code only: its outputs and
+execution counts are cleared.
 
 ## Local data setup
 
@@ -76,3 +78,30 @@ python -m ltdb_levy.arrest_scale_cli plot \
 Use `--output-root PATH` with either command to override the configured artifact
 directory. Run `python -m ltdb_levy.arrest_scale_cli --help` for the complete
 set of reproducibility overrides.
+
+## C-simulation plots
+
+The non-empirical figures are reproduced by the output-free
+`simulation-plots.ipynb` notebook. First run the experiment scripts needed for
+the desired figure from the repository root, for example:
+
+```bash
+bash experiments/detection_time_cauchy_projected_surface.sh
+bash experiments/detection_time_mu.sh
+bash experiments/detection_time_fixed_volume.sh
+bash experiments/detection_time_fixed_surface.sh
+bash experiments/detection_time_small_delta_large_mu.sh
+bash experiments/detection_time_small_delta_small_mu.sh
+bash experiments/detection_time_ratio_fixed_surface.sh
+```
+
+These commands compile the simulator, create their ignored result directories,
+and write a merged CSV at the path used by the notebook. Launch Jupyter from
+the repository root and execute:
+
+```bash
+jupyter lab simulation-plots.ipynb
+```
+
+The generated PDFs are written beneath `plots/pdf_figures/`, which is also
+ignored by Git.
