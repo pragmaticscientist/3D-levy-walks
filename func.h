@@ -22,6 +22,16 @@ Result LevySearch3D_MultiWalker(int, const char*, double , double, int,
                                 double , const char* , int ,
                                 double, double, double, int, int, int, double);
 
+/* moving_target:
+ *   0 = fixed;
+ *   1 = continuous unit-speed target random walk;
+ *   2 = relocate the target center uniformly after every missed endpoint check.
+ * target_step_length is the length of each straight target run in mode 1 and is
+ * ignored in mode 2.  Modes 1 and 2 require exactly one walker and one target. */
+Result LevySearch3D_MultiWalkerWithTargetMotion(int, const char*, double, double, int,
+                                double, const char*, int,
+                                double, double, double, int, int, int, double, int, double);
+
 double LevySearch3D_MultiWalker_jump_and_random_dir(int, const char*, double, double, int,
                                 int, const char*, int,
                                 double, double, int*, double*, double);

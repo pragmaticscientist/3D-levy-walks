@@ -3,6 +3,7 @@
 #include <math.h>
 #include <time.h>
 #include <stdint.h>
+#include <float.h>
 #include <string.h> // Per strcmp e per gestire le stringhe
 #ifdef _OPENMP
 #include <omp.h>
@@ -13,6 +14,12 @@ typedef struct {
     uint64_t state;
     uint64_t inc;
 } RngState;
+
+typedef struct {
+    double direction[3];
+    double run_remaining;
+    double run_length;
+} TargetMotionState;
 
 int get_mu_index(double mu_val) {
     return (int)round((mu_val - 1.0) / 0.2);
@@ -116,6 +123,69 @@ static double rng_uniform(RngState *rng) {
     return ((double)pcg32_random(rng) + 0.5) * (1.0 / 4294967296.0);
 }
 
+static void sample_isotropic_direction(RngState *rng, double direction[3]) {
+    double theta = rng_uniform(rng) * 2.0 * M_PI;
+    double cos_phi = 1.0 - 2.0 * rng_uniform(rng);
+    double sin_phi = sqrt(1.0 - cos_phi * cos_phi);
+
+    direction[0] = sin_phi * cos(theta);
+    direction[1] = sin_phi * sin(theta);
+    direction[2] = cos_phi;
+}
+
+static void start_new_target_run(TargetMotionState *motion, RngState *rng) {
+    sample_isotropic_direction(rng, motion->direction);
+    motion->run_remaining = motion->run_length;
+}
+
+static void initialize_target_motion(TargetMotionState *motion, double run_length, RngState *rng) {
+    motion->run_length = run_length;
+    start_new_target_run(motion, rng);
+}
+
+static void apply_target_motion(TargetMotionState *motion, RngState *rng,
+                                double elapsed_distance, double relative_position[3]) {
+    double travel_remaining = elapsed_distance;
+
+    while (travel_remaining > 0.0) {
+        const double boundary_tolerance =
+            16.0 * DBL_EPSILON * fmax(motion->run_length, travel_remaining);
+        if (motion->run_remaining <= boundary_tolerance) {
+            start_new_target_run(motion, rng);
+        }
+
+        double segment_length = fmin(travel_remaining, motion->run_remaining);
+
+        relative_position[0] -= segment_length * motion->direction[0];
+        relative_position[1] -= segment_length * motion->direction[1];
+        relative_position[2] -= segment_length * motion->direction[2];
+
+        motion->run_remaining -= segment_length;
+        if (segment_length >= travel_remaining) {
+            travel_remaining = 0.0;
+        } else {
+            double updated_travel = travel_remaining - segment_length;
+            if (!(updated_travel < travel_remaining)) {
+                fprintf(stderr, "target_step_length is too small to advance target motion numerically\n");
+                exit(EXIT_FAILURE);
+            }
+            travel_remaining = updated_travel;
+        }
+
+        if (motion->run_remaining <=
+            16.0 * DBL_EPSILON * fmax(motion->run_length, travel_remaining)) {
+            start_new_target_run(motion, rng);
+        }
+    }
+}
+
+static void relocate_target_uniformly(RngState *rng, double cube_side,
+                                      double target_position[3]) {
+    target_position[0] = rng_uniform(rng) * cube_side;
+    target_position[1] = rng_uniform(rng) * cube_side;
+    target_position[2] = rng_uniform(rng) * cube_side;
+}
+
 static double Levy_with_rng(double mu, int lmax, double normalization_constant, RngState *rng_state) {
     double toss = rng_uniform(rng_state);
     double unif = rng_uniform(rng_state);
@@ -169,11 +239,34 @@ void rotate_point(double point[3], double normal[3], double rotated[3]) {
 
 
 
-Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, double n_volume, double mu, int lmax,
+Result LevySearch3D_MultiWalkerWithTargetMotion(int n_walkers, const char* initialization, double n_volume, double mu, int lmax,
                                 double D, const char* TargetShape, int num_targets_to_generate,
-                                double target_distance_from_origin, double p, double normalization_constant, int steps_between, int max_touches, int delta_selector, double delta) {
+                                double target_distance_from_origin, double p, double normalization_constant, int steps_between, int max_touches, int delta_selector, double delta,
+                                int moving_target, double target_step_length) {
+    if (moving_target < 0 || moving_target > 2) {
+        fprintf(stderr, "moving_target must be 0 (fixed), 1 (continuous random walk), or 2 (uniform random relocation)\n");
+        exit(EXIT_FAILURE);
+    }
+    if (moving_target && (n_walkers != 1 || num_targets_to_generate != 1)) {
+        fprintf(stderr, "moving target modes require exactly one walker and one target\n");
+        exit(EXIT_FAILURE);
+    }
+    if (!isfinite(target_step_length) || target_step_length < 0.0 ||
+        (moving_target == 1 && target_step_length <= 0.0)) {
+        fprintf(stderr, "target_step_length must be finite and nonnegative, and positive for moving_target=1\n");
+        exit(EXIT_FAILURE);
+    }
+
     double cube_side = cbrt(n_volume);
     RngState rng_state = make_rng_state();
+    RngState target_rng_state = {0, 0};
+    TargetMotionState target_motion_state = {{0.0, 0.0, 0.0}, 0.0, 0.0};
+    if (moving_target) {
+        target_rng_state = make_rng_state();
+    }
+    if (moving_target == 1) {
+        initialize_target_motion(&target_motion_state, target_step_length, &target_rng_state);
+    }
 
     // Allocate memory for walkers
     double (*walkers)[3] = (double (*)[3])malloc(n_walkers * sizeof(double[3]));
@@ -306,6 +399,16 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
             walkers[i][0] += direction[0] * l;
             walkers[i][1] += direction[1] * l;
             walkers[i][2] += direction[2] * l;
+
+            if (moving_target == 1) {
+                /*
+                 * Work in relative coordinates, keeping the target geometry
+                 * fixed.  The Levy length is elapsed time and the target moves
+                 * at unit speed.  Consume that time along the current target
+                 * run, carrying an unfinished run across Levy displacements.
+                 */
+                apply_target_motion(&target_motion_state, &target_rng_state, l, walkers[i]);
+            }
 
             // Apply toroidal boundary conditions
             walkers[i][0] = fmod(walkers[i][0], cube_side);
@@ -460,7 +563,24 @@ Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, doubl
                     discovery_times[i] = walker_times[i];
                     any_walker_found_target = 1;
                 }
+            } else if (moving_target == 2) {
+                /*
+                 * The current target participates in the unchanged endpoint
+                 * detection above.  Only after a miss do we choose the target
+                 * center for the next searcher displacement.
+                 */
+                relocate_target_uniformly(&target_rng_state, cube_side,
+                                          target_positions[0]);
             }
         }
     }
+}
+
+Result LevySearch3D_MultiWalker(int n_walkers, const char* initialization, double n_volume, double mu, int lmax,
+                                double D, const char* TargetShape, int num_targets_to_generate,
+                                double target_distance_from_origin, double p, double normalization_constant, int steps_between, int max_touches, int delta_selector, double delta) {
+    return LevySearch3D_MultiWalkerWithTargetMotion(n_walkers, initialization, n_volume, mu, lmax,
+                                D, TargetShape, num_targets_to_generate,
+                                target_distance_from_origin, p, normalization_constant, steps_between, max_touches, delta_selector, delta,
+                                0, 0.0);
 }

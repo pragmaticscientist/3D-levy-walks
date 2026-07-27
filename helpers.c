@@ -94,6 +94,10 @@ void load_config(const char *path, Config *cfg) {
             cfg->steps_between = atoi(value);
         else if (!strcmp(key, "max_touches"))
             cfg->max_touches = atoi(value);
+        else if (!strcmp(key, "moving_target"))
+            cfg->moving_target = atoi(value);
+        else if (!strcmp(key, "target_step_length"))
+            cfg->target_step_length = strtod(value, NULL);
         else if (!strcmp(key, "num_runs"))         /* NEW */
             cfg->num_runs = atoi(value);
         else if (!strcmp(key, "num_threads"))
@@ -195,4 +199,3 @@ char *build_output_path(const char *save_dir, const char *file_name) {
 
     return full_path;
 }
-

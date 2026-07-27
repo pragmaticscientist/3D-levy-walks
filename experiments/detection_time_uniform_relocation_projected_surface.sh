@@ -1,0 +1,36 @@
+#!/bin/bash
+set -euo pipefail
+
+# === OAR directives ===
+#OAR -l /nodes=1/core=50,walltime=03:00:00
+#OAR -O OAR_%jobid%.out
+#OAR -E OAR_%jobid%.err
+#OAR -n uniform-relocation-projected-surface
+
+cd "$(dirname "$0")/.."
+
+SOURCE_FILE="simulation.c"
+LIB_FILES=("func.c" "helpers.c")
+EXECUTABLE_NAME="simulation_executable_uniform_relocation_$$"
+CONFIG_FILE="./experiments/configs/detection_time_projected_surface_uniform_relocation.conf"
+
+cleanup() {
+    if [ -f "./$EXECUTABLE_NAME" ]; then
+        echo "Deleting the executable $EXECUTABLE_NAME..."
+        rm -f "./$EXECUTABLE_NAME"
+    fi
+}
+trap cleanup EXIT
+
+NUM_THREADS="$(awk -F= '/^num_threads=/ {print $2; exit}' "$CONFIG_FILE")"
+export OMP_NUM_THREADS="${NUM_THREADS:-1}"
+export OMP_PROC_BIND=close
+export OMP_PLACES=cores
+
+echo "Compiling $SOURCE_FILE..."
+gcc -O3 -fopenmp "$SOURCE_FILE" "${LIB_FILES[@]}" -o "$EXECUTABLE_NAME" -lm
+echo "Compilation successful. Executable: $EXECUTABLE_NAME"
+
+echo "Running $CONFIG_FILE with OMP_NUM_THREADS=$OMP_NUM_THREADS..."
+"./$EXECUTABLE_NAME" "$CONFIG_FILE"
+echo "Uniform-relocation simulation completed successfully."

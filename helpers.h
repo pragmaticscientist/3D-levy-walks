@@ -6,6 +6,8 @@ typedef struct {
     int delta_selector;
     int steps_between;
     int max_touches;
+    int moving_target;
+    double target_step_length;
     int num_runs;         
     int num_threads;
     double l_max;
@@ -76,4 +78,3 @@ void load_config(const char *path, Config *cfg);
 void free_config(Config *cfg);
 
 char *build_output_path(const char *save_dir, const char *file_name);
-

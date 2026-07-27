@@ -93,6 +93,9 @@ bash experiments/detection_time_fixed_surface.sh
 bash experiments/detection_time_small_delta_large_mu.sh
 bash experiments/detection_time_small_delta_small_mu.sh
 bash experiments/detection_time_ratio_fixed_surface.sh
+bash experiments/detection_time_fixed_target_projected_surface.sh
+bash experiments/detection_time_moving_target_projected_surface.sh
+bash experiments/detection_time_uniform_relocation_projected_surface.sh
 ```
 
 These commands compile the simulator, create their ignored result directories,

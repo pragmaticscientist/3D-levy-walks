@@ -123,6 +123,38 @@ int main(int argc, char *argv[]) {
     Config cfg = {0};
     load_config(conf_path, &cfg);
 
+    if (cfg.moving_target < 0 || cfg.moving_target > 2) {
+        fprintf(stderr, "Error: moving_target must be 0 (fixed), 1 (continuous random walk), or 2 (uniform random relocation).\n");
+        free_config(&cfg);
+        return EXIT_FAILURE;
+    }
+    if (!isfinite(cfg.target_step_length) || cfg.target_step_length < 0.0 ||
+        (cfg.moving_target == 1 && cfg.target_step_length <= 0.0)) {
+        fprintf(stderr, "Error: target_step_length must be finite and nonnegative, and positive when moving_target=1.\n");
+        free_config(&cfg);
+        return EXIT_FAILURE;
+    }
+    if (cfg.moving_target) {
+        for (int i = 0; i < cfg.len_range_nwalkers; ++i) {
+            if (cfg.range_nwalkers[i] != 1) {
+                fprintf(stderr, "Error: moving_target modes 1 and 2 require range_nwalkers=1.\n");
+                free_config(&cfg);
+                return EXIT_FAILURE;
+            }
+        }
+        for (int i = 0; i < cfg.len_range_ntargets; ++i) {
+            if (cfg.range_ntargets[i] != 1) {
+                fprintf(stderr, "Error: moving_target modes 1 and 2 require range_ntargets=1.\n");
+                free_config(&cfg);
+                return EXIT_FAILURE;
+            }
+        }
+    }
+    const char *target_motion =
+        cfg.moving_target == 1 ? "moving_continuous_unit_run" :
+        cfg.moving_target == 2 ? "uniform_random_relocation" :
+                                 "fixed";
+
     printf("## Starting Levy Search Simulations on 3D Torus\n");
 
     if (ensure_directory_exists(cfg.save_directory) != 0) {
@@ -131,7 +163,7 @@ int main(int argc, char *argv[]) {
     }
 
     char *output_filename = build_output_path(cfg.save_directory, cfg.file_name);
-    const char *csv_header = "n_walkers,n_volume,mu,lmax,D,surface,TargetShape,n_targets,fixed_target_dist,detection_time,probability,surface_selector,first_touch_steps,second_touch_steps,delta_selector,delta\n";
+    const char *csv_header = "n_walkers,n_volume,mu,lmax,D,surface,TargetShape,n_targets,fixed_target_dist,target_motion,target_step_length,detection_time,probability,surface_selector,first_touch_steps,second_touch_steps,delta_selector,delta\n";
 
     int num_threads = cfg.num_threads > 0 ? cfg.num_threads : 1;
 #ifdef _OPENMP
@@ -244,13 +276,13 @@ int main(int argc, char *argv[]) {
                                             for (int i_delta = 0; i_delta < cfg.len_range_delta; ++i_delta) {
                                                 double delta = cfg.range_delta[i_delta];
                                                 if ((cfg.delta_selector == 0 && D >= 1 && D <= side) || (cfg.delta_selector == 1)){
-                                                    Result result = LevySearch3D_MultiWalker(n_walkers, "nest", n_volume, mu, lmax_current,
-                                                                                                        D, TargetShape, n_targets, fixed_target_dist, probability, normalization_constant, cfg.steps_between, cfg.max_touches, cfg.delta_selector, delta);
+                                                    Result result = LevySearch3D_MultiWalkerWithTargetMotion(n_walkers, "nest", n_volume, mu, lmax_current,
+                                                                                                        D, TargetShape, n_targets, fixed_target_dist, probability, normalization_constant, cfg.steps_between, cfg.max_touches, cfg.delta_selector, delta, cfg.moving_target, cfg.target_step_length);
                                                     double detection_time = result.detection_time;
                                                     int first_touch_steps = result.first_touch_steps;
                                                     int second_touch_steps = result.second_touch_steps;
-                                                    fprintf(thread_output, "%d,%.0f,%.1f,%d,%.2f,%.2f,%s,%d,%.1f,%.2f,%.2f,%d,%d,%d,%d,%.2f\n",
-                                                            n_walkers, n_volume, mu, lmax_current, D, surface, TargetShape, n_targets, fixed_target_dist, detection_time, probability, cfg.surface_selector, first_touch_steps, second_touch_steps, cfg.delta_selector, delta);
+                                                    fprintf(thread_output, "%d,%.0f,%.1f,%d,%.2f,%.2f,%s,%d,%.1f,%s,%.2f,%.2f,%.2f,%d,%d,%d,%d,%.2f\n",
+                                                            n_walkers, n_volume, mu, lmax_current, D, surface, TargetShape, n_targets, fixed_target_dist, target_motion, cfg.target_step_length, detection_time, probability, cfg.surface_selector, first_touch_steps, second_touch_steps, cfg.delta_selector, delta);
                                                 }
                                                 pbar_counter++;
                                             }
@@ -326,13 +358,13 @@ int main(int argc, char *argv[]) {
                                             //printf("Running configuration: n_walkers=%d, n_volume=%.0f, mu=%.1f, lmax=%d, D=%.2f, surface=%.2f, TargetShape=%s, n_targets=%d, fixed_target_dist=%.1f, probability=%.2f, delta=%.2f\n",
                                             //        n_walkers, n_volume, mu, lmax_current, D, surface, TargetShape, n_targets, fixed_target_dist, probability, delta);
                                             if ((cfg.delta_selector == 0 && D >= 1 && D <= side) || (cfg.delta_selector == 1)){
-                                                Result result = LevySearch3D_MultiWalker(n_walkers, "nest", n_volume, mu, lmax_current,
-                                                                                                    D, TargetShape, n_targets, fixed_target_dist, probability, normalization_constant, cfg.steps_between, cfg.max_touches, cfg.delta_selector, delta);
+                                                Result result = LevySearch3D_MultiWalkerWithTargetMotion(n_walkers, "nest", n_volume, mu, lmax_current,
+                                                                                                    D, TargetShape, n_targets, fixed_target_dist, probability, normalization_constant, cfg.steps_between, cfg.max_touches, cfg.delta_selector, delta, cfg.moving_target, cfg.target_step_length);
                                                 double detection_time = result.detection_time;
                                                 int first_touch_steps = result.first_touch_steps;
                                                 int second_touch_steps = result.second_touch_steps;
-                                                fprintf(output_file, "%d,%.0f,%.1f,%d,%.2f,%.2f,%s,%d,%.1f,%.2f,%.2f,%d,%d,%d,%d,%.2f\n",
-                                                        n_walkers, n_volume, mu, lmax_current, D, surface, TargetShape, n_targets, fixed_target_dist, detection_time, probability, cfg.surface_selector, first_touch_steps, second_touch_steps, cfg.delta_selector, delta);
+                                                fprintf(output_file, "%d,%.0f,%.1f,%d,%.2f,%.2f,%s,%d,%.1f,%s,%.2f,%.2f,%.2f,%d,%d,%d,%d,%.2f\n",
+                                                        n_walkers, n_volume, mu, lmax_current, D, surface, TargetShape, n_targets, fixed_target_dist, target_motion, cfg.target_step_length, detection_time, probability, cfg.surface_selector, first_touch_steps, second_touch_steps, cfg.delta_selector, delta);
                                                 if (fflush(output_file) != 0) {
                                                     perror("fflush failed");
                                                 }
