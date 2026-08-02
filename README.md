@@ -28,9 +28,7 @@ datasets/GT_TRACKS/
 configs/ltdb_metadata.csv
 ```
 
-Both locations are ignored by Git. The trajectory format is the one described
-by Pizzagalli et al. (2018), DOI `10.1038/sdata.2018.129`. If the annotation
-table is absent, the inspect stage creates a template from the installed
+If the annotation table is absent, the inspect stage creates a template from the installed
 trajectory files:
 
 ```bash
@@ -107,7 +105,7 @@ bash experiments/detection_time_moving_target_projected_surface.sh
 bash experiments/detection_time_uniform_relocation_projected_surface.sh
 ```
 
-These commands compile the simulator, create their ignored result directories,
+These commands compile the simulator, create their result directories,
 and write a merged CSV at the path used by the notebook. Launch Jupyter from
 the repository root and execute:
 
@@ -115,5 +113,4 @@ the repository root and execute:
 jupyter lab simulation-plots.ipynb
 ```
 
-The generated PDFs are written beneath `plots/pdf_figures/`, which is also
-ignored by Git.
+The generated PDFs are written beneath `plots/pdf_figures/`.
