@@ -7,13 +7,22 @@ execution counts are cleared.
 
 ## Local data setup
 
-Place the LTDB ground-truth trajectory files in:
+Download the source data from the LTDB Figshare deposit:
+
+- **Tracks:** download `GT_TRACKS.zip` from the
+  [LTDB Figshare collection](https://doi.org/10.6084/m9.figshare.c.3827890),
+  then extract its ground-truth trajectory files into:
 
 ```text
 datasets/GT_TRACKS/
 ```
 
-The YAML pipeline configurations expect the biological annotation table at:
+- **Metadata:** download `LTDB.sql` from the
+  [LTDB SQL database deposit](https://doi.org/10.6084/m9.figshare.5946472.v1).
+  The biological annotations used by this pipeline come from Tables 3 and 4
+  of the [LTDB data descriptor](https://doi.org/10.1038/sdata.2018.129) and
+  are cross-checked against that SQL dump. The YAML pipeline configurations
+  expect the resulting annotation table at:
 
 ```text
 configs/ltdb_metadata.csv

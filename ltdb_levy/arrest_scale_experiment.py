@@ -764,11 +764,12 @@ def _make_figures(
 
     # This is the compact paper-facing comparison.  Shape is encoded by
     # colour (and a redundant marker), while trajectory construction is
-    # encoded only by line style.  The observed and whole-track-rotation
+    # encoded by line style and redundant marker fill.  The observed and
+    # whole-track-rotation
     # controls remain in the saved tables but are deliberately omitted here.
     class_style = {
         "ordered_length_rotated": ("Empirical", "-", True),
-        "fitted_mu": ("Fitted $\\mu$", "--", False),
+        "fitted_mu": ("Fitted $\\mu$", (0, (3.0, 1.4)), False),
     }
     shape_style = {
         "Ball": ("#0072B2", "o"),
@@ -793,15 +794,10 @@ def _make_figures(
             [0],
             color="#222222",
             linestyle=linestyle,
-            linewidth=1.35,
-            marker="o",
-            markerfacecolor="#222222" if filled else "white",
-            markeredgecolor="#222222",
-            markeredgewidth=0.6,
-            markersize=3.0,
+            linewidth=1.7,
             label=label,
         )
-        for label, linestyle, filled in class_style.values()
+        for label, linestyle, _filled in class_style.values()
     ]
     panel_titles = {
         "nk_pln_influenza_dt30": "NK",
@@ -1033,10 +1029,9 @@ def _make_figures(
                 loc="lower center",
                 bbox_to_anchor=(0.5, 0.035),
                 ncol=5,
-                columnspacing=0.45,
-                handlelength=1.25,
-                handletextpad=0.22,
-                markerscale=0.82,
+                columnspacing=0.38,
+                handlelength=2.55,
+                handletextpad=0.25,
                 borderaxespad=0.0,
                 frameon=False,
                 fontsize=6.0,

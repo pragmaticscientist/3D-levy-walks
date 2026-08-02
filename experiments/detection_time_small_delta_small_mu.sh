@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # === OAR directives ===
-#OAR -l /nodes=1/core=50,walltime=1:00:00
+#OAR -l nodes=1/core=50,walltime=1:00:00
 #OAR -O OAR_%jobid%.out
 #OAR -E OAR_%jobid%.err
 #OAR -n small-delta-small-mu
