@@ -113,4 +113,4 @@ the repository root and execute:
 jupyter lab simulation-plots.ipynb
 ```
 
-The generated PDFs are written beneath `plots/pdf_figures/`.
+The generated PDFs are written in `plots/pdf_figures/`.
